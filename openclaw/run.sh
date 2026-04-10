@@ -55,7 +55,7 @@ export OPENCLAW_GATEWAY_TOKEN="${GATEWAY_TOKEN}"
 # the gateway starts and serves the web UI for the user to finish setup.
 # The config is written to $HOME/.openclaw/config.json (inside /data).
 OC_CONFIG_DIR="${OPENCLAW_DATA}/.openclaw"
-OC_CONFIG_FILE="${OC_CONFIG_DIR}/config.json"
+OC_CONFIG_FILE="${OC_CONFIG_DIR}/openclaw.json"
 
 mkdir -p "${OC_CONFIG_DIR}"
 
@@ -69,24 +69,22 @@ if [ ! -f "${OC_CONFIG_FILE}" ]; then
       "token": "${GATEWAY_TOKEN}"
     },
     "controlUi": {
-      "allowedOrigins": ["*"]
+      "dangerouslyAllowHostHeaderOriginFallback": true
     }
   }
 }
 EOF
-else
-    echo "[openclaw] Config exists at ${OC_CONFIG_FILE}, contents:"
-    cat "${OC_CONFIG_FILE}"
 fi
 
-# Always ensure allowedOrigins is set — openclaw blocks non-localhost browsers
-# by default. This patch runs on every start and only touches this one key.
-echo "[openclaw] Ensuring controlUi.allowedOrigins=[\"*\"]..."
-jq '.gateway.controlUi.allowedOrigins = ["*"]' "${OC_CONFIG_FILE}" \
+# Always ensure dangerouslyAllowHostHeaderOriginFallback is set.
+# This makes openclaw accept connections from any hostname/IP the browser
+# used — required when accessing from LAN devices (non-localhost origins).
+echo "[openclaw] Patching config: controlUi.dangerouslyAllowHostHeaderOriginFallback=true"
+jq '.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true' "${OC_CONFIG_FILE}" \
     > "${OC_CONFIG_FILE}.tmp" \
-    && mv "${OC_CONFIG_FILE}.tmp" "${OC_CONFIG_FILE}" \
-    && echo "[openclaw] Done. Config is now:" \
-    && cat "${OC_CONFIG_FILE}"
+    && mv "${OC_CONFIG_FILE}.tmp" "${OC_CONFIG_FILE}"
+echo "[openclaw] Config (${OC_CONFIG_FILE}):"
+cat "${OC_CONFIG_FILE}"
 
 # ── Print connection info ─────────────────────────────────────────────────────
 LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
