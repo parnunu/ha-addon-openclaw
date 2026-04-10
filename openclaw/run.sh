@@ -60,7 +60,7 @@ OC_CONFIG_FILE="${OC_CONFIG_DIR}/config.json"
 mkdir -p "${OC_CONFIG_DIR}"
 
 if [ ! -f "${OC_CONFIG_FILE}" ]; then
-    echo "[openclaw] Writing bootstrap config..."
+    echo "[openclaw] Writing bootstrap config to ${OC_CONFIG_FILE}..."
     cat > "${OC_CONFIG_FILE}" <<EOF
 {
   "gateway": {
@@ -75,14 +75,18 @@ if [ ! -f "${OC_CONFIG_FILE}" ]; then
 }
 EOF
 else
-    # Patch existing config: ensure allowedOrigins is set so any LAN device
-    # can open the Control UI (openclaw blocks non-localhost origins by default)
-    if ! jq -e '.gateway.controlUi.allowedOrigins' "${OC_CONFIG_FILE}" > /dev/null 2>&1; then
-        echo "[openclaw] Patching config: adding controlUi.allowedOrigins..."
-        jq '.gateway.controlUi.allowedOrigins = ["*"]' "${OC_CONFIG_FILE}" > "${OC_CONFIG_FILE}.tmp" \
-            && mv "${OC_CONFIG_FILE}.tmp" "${OC_CONFIG_FILE}"
-    fi
+    echo "[openclaw] Config exists at ${OC_CONFIG_FILE}, contents:"
+    cat "${OC_CONFIG_FILE}"
 fi
+
+# Always ensure allowedOrigins is set — openclaw blocks non-localhost browsers
+# by default. This patch runs on every start and only touches this one key.
+echo "[openclaw] Ensuring controlUi.allowedOrigins=[\"*\"]..."
+jq '.gateway.controlUi.allowedOrigins = ["*"]' "${OC_CONFIG_FILE}" \
+    > "${OC_CONFIG_FILE}.tmp" \
+    && mv "${OC_CONFIG_FILE}.tmp" "${OC_CONFIG_FILE}" \
+    && echo "[openclaw] Done. Config is now:" \
+    && cat "${OC_CONFIG_FILE}"
 
 # ── Print connection info ─────────────────────────────────────────────────────
 LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
