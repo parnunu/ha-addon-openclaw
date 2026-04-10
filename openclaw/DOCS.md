@@ -38,19 +38,25 @@ log_level: "info"
 
 ## Connecting to the Gateway
 
-After starting the add-on, check the **Log** tab to see:
+After starting the add-on, check the **Log** tab — it will print the exact URL:
 
 ```
 =======================================================
-  OpenClaw Gateway
-  WebSocket / Web UI  →  ws://<HA-IP>:18789
-  Gateway token       →  <your-token>
+  OpenClaw Gateway started
+
+  Open in your browser:
+    http://192.168.1.x:18789
+
+  Gateway token: <your-token>
 =======================================================
 ```
 
-Use these details in:
-- The OpenClaw desktop or mobile app (add a remote gateway)
-- The `openclaw` CLI: `openclaw gateway connect --url ws://<HA-IP>:18789 --token <token>`
+**Just open that URL in any browser on your network.** That's the OpenClaw web UI where you configure LLM providers, connect messaging channels (WhatsApp, Telegram, etc.), and chat with the AI.
+
+The token is only needed if you're connecting via the `openclaw` CLI from another machine:
+```
+openclaw gateway connect --url ws://<HA-IP>:18789 --token <token>
+```
 
 ## Ports
 

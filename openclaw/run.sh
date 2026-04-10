@@ -72,16 +72,19 @@ fi
 export OPENCLAW_GATEWAY_TOKEN="${GATEWAY_TOKEN}"
 
 # ── Print connection info ─────────────────────────────────────────────────────
+# Detect the container's LAN IP to print a usable URL
+LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
+LAN_IP="${LAN_IP:-<your-ha-ip>}"
+
 echo "======================================================="
-echo "  OpenClaw Gateway"
-echo "  WebSocket / Web UI  →  ws://<HA-IP>:18789"
-echo "  Gateway token       →  ${GATEWAY_TOKEN}"
-echo "  Log level           →  ${LOG_LEVEL}"
-echo "======================================================="
+echo "  OpenClaw Gateway started"
 echo ""
-echo "  Add this gateway in the OpenClaw desktop/mobile app:"
-echo "    URL:   ws://<HA-IP>:18789"
-echo "    Token: ${GATEWAY_TOKEN}"
+echo "  Open in your browser:"
+echo "    http://${LAN_IP}:18789"
+echo ""
+echo "  Gateway token: ${GATEWAY_TOKEN}"
+echo ""
+echo "  (Token is needed if connecting via CLI or remote client)"
 echo "======================================================="
 
 # ── Start the gateway ─────────────────────────────────────────────────────────
