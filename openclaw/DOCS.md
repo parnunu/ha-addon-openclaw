@@ -8,6 +8,10 @@ OpenClaw is an open-source AI gateway that lets you control your own personal AI
 
 The gateway is the central hub: it accepts WebSocket connections from channels (apps) and routes them to your configured AI nodes.
 
+## Recommended: configure a system prompt
+
+After starting the add-on, paste the **[system prompt](https://github.com/parnunu/ha-addon-openclaw/blob/main/openclaw/SYSTEM_PROMPT.md)** into OpenClaw (Settings → Agent → System Prompt). It tells the agent it is running inside Docker, which paths are safe, and what rules to follow when writing files — preventing accidental data loss from agent actions.
+
 ## Installation (2 steps)
 
 1. **Add this repository** to Home Assistant:
