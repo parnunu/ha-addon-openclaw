@@ -9,10 +9,7 @@ url: https://github.com/parnunu/ha-addon-openclaw
 arch:
   - amd64
   - aarch64
-ports:
-  18789/tcp: 18789
-ports_description:
-  18789/tcp: "OpenClaw Gateway (WebSocket + Web UI)"
+host_network: true
 map:
   - data:rw
 startup: application
