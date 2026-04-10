@@ -9,21 +9,22 @@ LABEL \
     io.hass.type="addon" \
     io.hass.arch="${BUILD_ARCH}"
 
-# Install Node.js + system dependencies
-# nodejs/npm come from the Alpine edge/community repo bundled in HA base images
+# Install Node.js and system dependencies in one layer
+# nodejs and npm are in the Alpine community repo which HA base images include
 RUN apk add --no-cache \
-    nodejs \
-    npm \
-    bash \
-    curl \
-    git \
-    jq \
-    openssl \
-    ca-certificates \
-    && update-ca-certificates
+        nodejs \
+        npm \
+        bash \
+        curl \
+        git \
+        jq \
+        openssl \
+        ca-certificates \
+    && update-ca-certificates \
+    && node --version \
+    && npm --version
 
 # Install openclaw from npm
-# --no-fund --no-audit suppress extra network calls during install
 ARG OPENCLAW_VERSION=2026.4.9
 RUN npm install -g --no-fund --no-audit openclaw@${OPENCLAW_VERSION}
 
