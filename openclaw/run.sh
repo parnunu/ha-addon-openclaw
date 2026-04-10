@@ -57,19 +57,31 @@ export OPENCLAW_GATEWAY_TOKEN="${GATEWAY_TOKEN}"
 OC_CONFIG_DIR="${OPENCLAW_DATA}/.openclaw"
 OC_CONFIG_FILE="${OC_CONFIG_DIR}/config.json"
 
+mkdir -p "${OC_CONFIG_DIR}"
+
 if [ ! -f "${OC_CONFIG_FILE}" ]; then
     echo "[openclaw] Writing bootstrap config..."
-    mkdir -p "${OC_CONFIG_DIR}"
     cat > "${OC_CONFIG_FILE}" <<EOF
 {
   "gateway": {
     "mode": "local",
     "auth": {
       "token": "${GATEWAY_TOKEN}"
+    },
+    "controlUi": {
+      "allowedOrigins": ["*"]
     }
   }
 }
 EOF
+else
+    # Patch existing config: ensure allowedOrigins is set so any LAN device
+    # can open the Control UI (openclaw blocks non-localhost origins by default)
+    if ! jq -e '.gateway.controlUi.allowedOrigins' "${OC_CONFIG_FILE}" > /dev/null 2>&1; then
+        echo "[openclaw] Patching config: adding controlUi.allowedOrigins..."
+        jq '.gateway.controlUi.allowedOrigins = ["*"]' "${OC_CONFIG_FILE}" > "${OC_CONFIG_FILE}.tmp" \
+            && mv "${OC_CONFIG_FILE}.tmp" "${OC_CONFIG_FILE}"
+    fi
 fi
 
 # ── Print connection info ─────────────────────────────────────────────────────
