@@ -58,19 +58,27 @@ The port is exposed on your LAN so all devices on the same network can reach the
 
 ## Persistent Storage
 
-All OpenClaw configuration, channel credentials, and workspace data are stored in `/data/openclaw` (the add-on's persistent data directory on your HAOS host).
+Everything that matters lives in `/data/openclaw` on your HAOS host — the add-on's dedicated persistent volume. The startup script redirects all relevant paths there:
 
-The startup script redirects every path the app might write to — `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, npm cache, and `/root` itself — into this single directory. This means:
+| What | Path inside `/data/openclaw` | Survives update? |
+|------|------------------------------|-----------------|
+| Gateway config & token | `.openclaw/` (via `HOME`) | Yes |
+| LLM provider API keys | `.config/openclaw/` (via `XDG_CONFIG_HOME`) | Yes |
+| Channel credentials | `.local/share/openclaw/` (via `XDG_DATA_HOME`) | Yes |
+| Agent workspace files | `workspace/` (via `OPENCLAW_WORKSPACE`) | Yes |
+| Any `~/` or `/root/` path | symlinked → `/data/openclaw/` | Yes |
+| Add-on **uninstalled** | — | **No — all wiped** |
 
-| Event | Configuration |
-|-------|--------------|
-| Add-on restart | Fully preserved |
-| Add-on **update** | Fully preserved |
-| Add-on **uninstall** | **Wiped** — backup first if needed |
+### Agent file writes
 
-The auto-generated gateway token is saved to `/data/openclaw/.gateway_token`.
+OpenClaw's agent can run shell commands, write files, clone git repos, etc. The add-on protects against accidental data loss with two layers:
 
-> **Tip:** Before uninstalling, copy `/data/openclaw` to a safe location if you want to keep your channel credentials and LLM provider settings.
+1. **Working directory is set to `/data/openclaw/workspace`** — relative paths (e.g. `touch notes.txt`, `git clone …`) land there automatically.
+2. **`OPENCLAW_WORKSPACE` env var** is set to the same path — openclaw uses this as its default file-creation root.
+
+**What is NOT protected:** if you explicitly ask the agent to write to an absolute path outside `/data` (e.g. `write to /tmp/myfile` or `save to /opt/project`), that path is inside the ephemeral container layer and will be gone after an update. This is unavoidable without a full filesystem overlay — just keep agent work inside `~/` or relative paths and it will always be safe.
+
+> **Tip:** Before uninstalling, back up `/data/openclaw` if you want to keep your channel credentials and LLM provider settings.
 
 ## Updating OpenClaw
 

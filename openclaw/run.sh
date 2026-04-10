@@ -27,13 +27,18 @@ mkdir -p \
     "${OPENCLAW_DATA}/.config" \
     "${OPENCLAW_DATA}/.local/share" \
     "${OPENCLAW_DATA}/.cache" \
-    "${OPENCLAW_DATA}/.npm"
+    "${OPENCLAW_DATA}/.npm" \
+    "${OPENCLAW_DATA}/workspace"
 
 export HOME="${OPENCLAW_DATA}"
 export XDG_CONFIG_HOME="${OPENCLAW_DATA}/.config"
 export XDG_DATA_HOME="${OPENCLAW_DATA}/.local/share"
 export XDG_CACHE_HOME="${OPENCLAW_DATA}/.cache"
 export npm_config_cache="${OPENCLAW_DATA}/.npm"
+
+# Agent workspace — where the AI writes files, clones repos, and runs shell
+# commands by default.  Rooted inside /data so everything survives updates.
+export OPENCLAW_WORKSPACE="${OPENCLAW_DATA}/workspace"
 
 # Symlink /root → persistent data dir so any hardcoded /root/* paths also persist
 if [ ! -L /root ]; then
@@ -42,6 +47,10 @@ if [ ! -L /root ]; then
     rm -rf /root
     ln -sf "${OPENCLAW_DATA}" /root
 fi
+
+# Change working directory to the workspace so relative paths from agent shell
+# commands (e.g. "create a file called notes.txt") land in persistent storage.
+cd "${OPENCLAW_DATA}/workspace"
 
 # ── Gateway token ─────────────────────────────────────────────────────────────
 # If the user left gateway_token blank in the add-on config, auto-generate one
