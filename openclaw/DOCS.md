@@ -58,9 +58,19 @@ The port is exposed on your LAN so all devices on the same network can reach the
 
 ## Persistent Storage
 
-All OpenClaw configuration, channel credentials, and workspace data are stored in the add-on's `/data/openclaw` directory. This survives add-on updates and restarts.
+All OpenClaw configuration, channel credentials, and workspace data are stored in `/data/openclaw` (the add-on's persistent data directory on your HAOS host).
+
+The startup script redirects every path the app might write to — `HOME`, `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_CACHE_HOME`, npm cache, and `/root` itself — into this single directory. This means:
+
+| Event | Configuration |
+|-------|--------------|
+| Add-on restart | Fully preserved |
+| Add-on **update** | Fully preserved |
+| Add-on **uninstall** | **Wiped** — backup first if needed |
 
 The auto-generated gateway token is saved to `/data/openclaw/.gateway_token`.
+
+> **Tip:** Before uninstalling, copy `/data/openclaw` to a safe location if you want to keep your channel credentials and LLM provider settings.
 
 ## Updating OpenClaw
 
@@ -88,4 +98,4 @@ Check the **Log** tab. Common causes:
 - Confirm you're using the correct HA host IP (visible in **Settings → System → Network**).
 
 **Token lost after reinstall**
-The token is stored in `/data/openclaw/.gateway_token`. If you reinstalled the add-on and `/data` was wiped, a new token was generated — update your clients.
+The token is stored in `/data/openclaw/.gateway_token`. Uninstalling the add-on wipes `/data`, so a new token is generated on the next install — update your clients with the new token printed in the logs.

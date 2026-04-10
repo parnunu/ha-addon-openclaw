@@ -9,10 +9,39 @@ GATEWAY_TOKEN=$(jq -r '.gateway_token // ""' "${CONFIG_PATH}")
 LOG_LEVEL=$(jq -r '.log_level // "info"' "${CONFIG_PATH}")
 
 # ── Persistent data directory ─────────────────────────────────────────────────
-# All openclaw config, credentials, and workspace files live here so they
-# survive add-on restarts and updates.
-mkdir -p "${OPENCLAW_DATA}"
+# All openclaw config, credentials, and workspace files must live in /data so
+# they survive add-on updates (the container image is replaced on every update;
+# only /data is preserved by HAOS).
+#
+# We redirect every place a Node.js / XDG-compliant app might write config:
+#   HOME              → openclaw uses os.homedir() for its own config
+#   XDG_CONFIG_HOME   → ~/.config equivalent
+#   XDG_DATA_HOME     → ~/.local/share equivalent
+#   XDG_CACHE_HOME    → ~/.cache (can be ephemeral, but keep for faster restarts)
+#   npm_config_cache  → npm cache directory
+#
+# We also symlink /root → /data/openclaw so any code that hardcodes /root/*
+# paths (e.g. /root/.openclaw) transparently lands in persistent storage.
+mkdir -p \
+    "${OPENCLAW_DATA}" \
+    "${OPENCLAW_DATA}/.config" \
+    "${OPENCLAW_DATA}/.local/share" \
+    "${OPENCLAW_DATA}/.cache" \
+    "${OPENCLAW_DATA}/.npm"
+
 export HOME="${OPENCLAW_DATA}"
+export XDG_CONFIG_HOME="${OPENCLAW_DATA}/.config"
+export XDG_DATA_HOME="${OPENCLAW_DATA}/.local/share"
+export XDG_CACHE_HOME="${OPENCLAW_DATA}/.cache"
+export npm_config_cache="${OPENCLAW_DATA}/.npm"
+
+# Symlink /root → persistent data dir so any hardcoded /root/* paths also persist
+if [ ! -L /root ]; then
+    # Copy anything already in /root (e.g. from image build) into data dir first
+    cp -a /root/. "${OPENCLAW_DATA}/" 2>/dev/null || true
+    rm -rf /root
+    ln -sf "${OPENCLAW_DATA}" /root
+fi
 
 # ── Gateway token ─────────────────────────────────────────────────────────────
 # If the user left gateway_token blank in the add-on config, auto-generate one
