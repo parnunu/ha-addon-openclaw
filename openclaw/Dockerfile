@@ -1,4 +1,4 @@
-ARG BUILD_FROM=node:22-alpine
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
 FROM $BUILD_FROM
 
 # Home Assistant add-on labels
@@ -9,8 +9,11 @@ LABEL \
     io.hass.type="addon" \
     io.hass.arch="${BUILD_ARCH}"
 
-# Install system dependencies
+# Install Node.js + system dependencies
+# nodejs/npm come from the Alpine edge/community repo bundled in HA base images
 RUN apk add --no-cache \
+    nodejs \
+    npm \
     bash \
     curl \
     git \
@@ -19,10 +22,10 @@ RUN apk add --no-cache \
     ca-certificates \
     && update-ca-certificates
 
-# Install openclaw — change OPENCLAW_VERSION in build.yaml to pin a release
-ARG OPENCLAW_VERSION=latest
-RUN npm install -g openclaw@${OPENCLAW_VERSION} \
-    && openclaw --version
+# Install openclaw from npm
+# --no-fund --no-audit suppress extra network calls during install
+ARG OPENCLAW_VERSION=2026.4.9
+RUN npm install -g --no-fund --no-audit openclaw@${OPENCLAW_VERSION}
 
 # Startup script
 COPY run.sh /run.sh
