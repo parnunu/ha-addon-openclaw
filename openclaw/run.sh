@@ -94,4 +94,5 @@ echo "======================================================="
 exec openclaw gateway run \
     --port 18789 \
     --bind lan \
-    --auth token
+    --auth token \
+    --allow-unconfigured
