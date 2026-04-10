@@ -69,32 +69,33 @@ if [ ! -f "${OC_CONFIG_FILE}" ]; then
       "token": "${GATEWAY_TOKEN}"
     },
     "controlUi": {
-      "dangerouslyAllowHostHeaderOriginFallback": true
+      "allowedOrigins": ["${GATEWAY_ORIGIN}"]
     }
   }
 }
 EOF
 fi
 
-# Always ensure dangerouslyAllowHostHeaderOriginFallback is set.
-# This makes openclaw accept connections from any hostname/IP the browser
-# used — required when accessing from LAN devices (non-localhost origins).
-echo "[openclaw] Patching config: controlUi.dangerouslyAllowHostHeaderOriginFallback=true"
-jq '.gateway.controlUi.dangerouslyAllowHostHeaderOriginFallback = true' "${OC_CONFIG_FILE}" \
+# Always sync allowedOrigins to the current LAN IP.
+# The browser sends Origin: http://<HA-IP>:18789 — we allow exactly that.
+echo "[openclaw] Setting controlUi.allowedOrigins to [\"${GATEWAY_ORIGIN}\"]"
+jq --arg origin "${GATEWAY_ORIGIN}" \
+    '.gateway.controlUi.allowedOrigins = [$origin]' "${OC_CONFIG_FILE}" \
     > "${OC_CONFIG_FILE}.tmp" \
     && mv "${OC_CONFIG_FILE}.tmp" "${OC_CONFIG_FILE}"
 echo "[openclaw] Config (${OC_CONFIG_FILE}):"
 cat "${OC_CONFIG_FILE}"
 
-# ── Print connection info ─────────────────────────────────────────────────────
+# ── Detect LAN IP ─────────────────────────────────────────────────────────────
 LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
-LAN_IP="${LAN_IP:-<your-ha-ip>}"
+LAN_IP="${LAN_IP:-127.0.0.1}"
+GATEWAY_ORIGIN="http://${LAN_IP}:18789"
 
 echo "======================================================="
 echo "  OpenClaw Gateway started"
 echo ""
 echo "  Open in your browser:"
-echo "    http://${LAN_IP}:18789"
+echo "    ${GATEWAY_ORIGIN}"
 echo ""
 echo "  Gateway token: ${GATEWAY_TOKEN}"
 echo "======================================================="
