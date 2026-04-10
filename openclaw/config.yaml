@@ -1,0 +1,25 @@
+name: OpenClaw
+version: "1.0.0"
+slug: openclaw
+description: >-
+  Run the OpenClaw AI gateway on your Home Assistant instance.
+  Connect any AI channel (WhatsApp, Telegram, Discord, Slack, and more)
+  to your own LLM — all from your own hardware.
+url: https://github.com/parnunu/ha-addon-openclaw
+arch:
+  - amd64
+  - aarch64
+ports:
+  18789/tcp: 18789
+ports_description:
+  18789/tcp: "OpenClaw Gateway (WebSocket + Web UI)"
+map:
+  - data:rw
+startup: application
+init: false
+options:
+  gateway_token: ""
+  log_level: "info"
+schema:
+  gateway_token: str
+  log_level: list(debug|info|warning|error)
