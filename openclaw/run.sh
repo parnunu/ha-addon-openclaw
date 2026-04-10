@@ -69,27 +69,33 @@ if [ ! -f "${OC_CONFIG_FILE}" ]; then
       "token": "${GATEWAY_TOKEN}"
     },
     "controlUi": {
-      "allowedOrigins": ["${GATEWAY_ORIGIN}"]
+      "allowedOrigins": []
     }
   }
 }
 EOF
 fi
 
-# Always sync allowedOrigins to the current LAN IP.
-# The browser sends Origin: http://<HA-IP>:18789 — we allow exactly that.
-echo "[openclaw] Setting controlUi.allowedOrigins to [\"${GATEWAY_ORIGIN}\"]"
-jq --arg origin "${GATEWAY_ORIGIN}" \
-    '.gateway.controlUi.allowedOrigins = [$origin]' "${OC_CONFIG_FILE}" \
+# Always sync allowedOrigins to the full /24 subnet so any LAN device works.
+echo "[openclaw] Setting controlUi.allowedOrigins to subnet ${SUBNET}.0/24"
+jq --argjson origins "${SUBNET_ORIGINS}" \
+    '.gateway.controlUi.allowedOrigins = $origins' "${OC_CONFIG_FILE}" \
     > "${OC_CONFIG_FILE}.tmp" \
     && mv "${OC_CONFIG_FILE}.tmp" "${OC_CONFIG_FILE}"
 echo "[openclaw] Config (${OC_CONFIG_FILE}):"
 cat "${OC_CONFIG_FILE}"
 
-# ── Detect LAN IP ─────────────────────────────────────────────────────────────
+# ── Detect LAN IP and build subnet origin list ────────────────────────────────
 LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
 LAN_IP="${LAN_IP:-127.0.0.1}"
 GATEWAY_ORIGIN="http://${LAN_IP}:18789"
+
+# Build allowedOrigins for the full /24 subnet (e.g. 192.168.200.1-254)
+# so any device on the same LAN can open the Control UI.
+SUBNET=$(echo "${LAN_IP}" | cut -d. -f1-3)
+SUBNET_ORIGINS=$(seq 1 254 | awk -v s="${SUBNET}" '{printf "\"http://%s.%d:18789\"", s, $1; if(NR<254) printf ","}')
+SUBNET_ORIGINS="[${SUBNET_ORIGINS}]"
+echo "[openclaw] LAN IP: ${LAN_IP}, allowing subnet ${SUBNET}.1-254"
 
 echo "======================================================="
 echo "  OpenClaw Gateway started"
