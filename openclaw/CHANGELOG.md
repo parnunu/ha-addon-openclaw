@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.4.9-2 — 2026-04-11
+
+### Fixed
+- Gateway now starts correctly on first run. openclaw requires a config file
+  before it will bind to any port; the add-on now writes a minimal bootstrap
+  config automatically so the web UI is reachable immediately.
+- Added `--allow-unconfigured` as a secondary safety net.
+
 ## 2026.4.9 — 2026-04-10
 
 ### Added
