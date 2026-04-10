@@ -7,6 +7,8 @@ OPENCLAW_DATA=/data/openclaw
 # ── Read addon options ────────────────────────────────────────────────────────
 GATEWAY_TOKEN=$(jq -r '.gateway_token // ""' "${CONFIG_PATH}")
 LOG_LEVEL=$(jq -r '.log_level // "info"' "${CONFIG_PATH}")
+# allowed_origins: user-supplied list from HA config UI (empty = auto-detect)
+ALLOWED_ORIGINS_JSON=$(jq -c '.allowed_origins // []' "${CONFIG_PATH}")
 
 # ── Persistent data directory ─────────────────────────────────────────────────
 mkdir -p \
@@ -76,26 +78,30 @@ if [ ! -f "${OC_CONFIG_FILE}" ]; then
 EOF
 fi
 
-# Always sync allowedOrigins to the full /24 subnet so any LAN device works.
-echo "[openclaw] Setting controlUi.allowedOrigins to subnet ${SUBNET}.0/24"
-jq --argjson origins "${SUBNET_ORIGINS}" \
+# Sync allowedOrigins to openclaw config (from HA config or auto-detected subnet)
+jq --argjson origins "${FINAL_ORIGINS}" \
     '.gateway.controlUi.allowedOrigins = $origins' "${OC_CONFIG_FILE}" \
     > "${OC_CONFIG_FILE}.tmp" \
     && mv "${OC_CONFIG_FILE}.tmp" "${OC_CONFIG_FILE}"
 echo "[openclaw] Config (${OC_CONFIG_FILE}):"
 cat "${OC_CONFIG_FILE}"
 
-# ── Detect LAN IP and build subnet origin list ────────────────────────────────
+# ── Detect LAN IP and build allowed origins ───────────────────────────────────
 LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
 LAN_IP="${LAN_IP:-127.0.0.1}"
 GATEWAY_ORIGIN="http://${LAN_IP}:18789"
 
-# Build allowedOrigins for the full /24 subnet (e.g. 192.168.200.1-254)
-# so any device on the same LAN can open the Control UI.
-SUBNET=$(echo "${LAN_IP}" | cut -d. -f1-3)
-SUBNET_ORIGINS=$(seq 1 254 | awk -v s="${SUBNET}" '{printf "\"http://%s.%d:18789\"", s, $1; if(NR<254) printf ","}')
-SUBNET_ORIGINS="[${SUBNET_ORIGINS}]"
-echo "[openclaw] LAN IP: ${LAN_IP}, allowing subnet ${SUBNET}.1-254"
+if [ "$(echo "${ALLOWED_ORIGINS_JSON}" | jq 'length')" -gt 0 ]; then
+    # User supplied explicit origins in HA config — use them as-is
+    FINAL_ORIGINS="${ALLOWED_ORIGINS_JSON}"
+    echo "[openclaw] Using user-configured allowedOrigins: ${FINAL_ORIGINS}"
+else
+    # Auto-detect: allow every host in the /24 subnet
+    SUBNET=$(echo "${LAN_IP}" | cut -d. -f1-3)
+    SUBNET_ORIGINS=$(seq 1 254 | awk -v s="${SUBNET}" '{printf "\"http://%s.%d:18789\"", s, $1; if(NR<254) printf ","}')
+    FINAL_ORIGINS="[${SUBNET_ORIGINS}]"
+    echo "[openclaw] Auto-detected subnet ${SUBNET}.0/24 — allowing .1-.254"
+fi
 
 echo "======================================================="
 echo "  OpenClaw Gateway started"
