@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — 2026-04-10
+## 2026.4.9 — 2026-04-10
 
 ### Added
 - Initial release of the OpenClaw Home Assistant add-on.

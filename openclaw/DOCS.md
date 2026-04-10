@@ -74,16 +74,16 @@ The auto-generated gateway token is saved to `/data/openclaw/.gateway_token`.
 
 ## Updating OpenClaw
 
-This add-on always installs the **latest** OpenClaw release when the container is built. To pick up a new OpenClaw version:
+The add-on version number matches the OpenClaw version (e.g. `2026.4.9`).
+A GitHub Action runs **daily**, checks the `openclaw` npm package, and automatically commits a version bump when a new release is detected. Home Assistant then shows the familiar **Update** badge — just click it.
 
-1. Go to the add-on page in Home Assistant.
-2. Click **Update** (if the add-on version was bumped) or **Rebuild** (to force a fresh image build with the latest npm package).
+**No manual work is required** to keep the add-on current.
 
-To pin a specific OpenClaw version, open `build.yaml` in this repository and change:
+To manually force a specific version, edit `build.yaml` in the repository:
 
 ```yaml
 args:
-  OPENCLAW_VERSION: "2026.3.0"   # pin to a specific release
+  OPENCLAW_VERSION: "2026.4.9"   # pin to a specific release
 ```
 
 ## Troubleshooting

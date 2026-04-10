@@ -1,0 +1,73 @@
+name: Update OpenClaw version
+
+# Runs daily and whenever triggered manually.
+# Checks the openclaw npm package for a new release. If the version changed,
+# it updates build.yaml + config.yaml and commits — which causes Home Assistant
+# to show an "Update available" badge for users who have the add-on installed.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC every day
+  workflow_dispatch:        # allow manual trigger from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  check-and-bump:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get latest openclaw version from npm
+        id: npm
+        run: |
+          VERSION=$(npm view openclaw version 2>/dev/null)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Latest openclaw on npm: ${VERSION}"
+
+      - name: Get current pinned version from build.yaml
+        id: current
+        run: |
+          VERSION=$(grep 'OPENCLAW_VERSION:' openclaw/build.yaml \
+            | sed 's/.*OPENCLAW_VERSION: *"\?//;s/"\?.*//')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Current pinned version: ${VERSION}"
+
+      - name: Skip if already up to date
+        if: steps.npm.outputs.version == steps.current.outputs.version
+        run: echo "Already at ${{ steps.npm.outputs.version }}, nothing to do."
+
+      - name: Bump versions in build.yaml and config.yaml
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        env:
+          NEW: ${{ steps.npm.outputs.version }}
+          OLD: ${{ steps.current.outputs.version }}
+        run: |
+          echo "Bumping openclaw ${OLD} → ${NEW}"
+
+          # build.yaml — update pinned npm version
+          sed -i "s/OPENCLAW_VERSION: \"${OLD}\"/OPENCLAW_VERSION: \"${NEW}\"/" \
+            openclaw/build.yaml
+
+          # config.yaml — addon version = openclaw version so HA shows the update
+          sed -i "s/^version: \"${OLD}\"/version: \"${NEW}\"/" \
+            openclaw/config.yaml
+
+          # Prepend a CHANGELOG entry
+          DATE=$(date -u +%Y-%m-%d)
+          ENTRY="## ${NEW} — ${DATE}\n\n### Changed\n- Updated OpenClaw to ${NEW}.\n"
+          sed -i "1s/^/${ENTRY}\n/" openclaw/CHANGELOG.md
+
+      - name: Commit and push
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        env:
+          NEW: ${{ steps.npm.outputs.version }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add openclaw/build.yaml openclaw/config.yaml openclaw/CHANGELOG.md
+          git commit -m "chore: bump openclaw to ${NEW}"
+          git push
