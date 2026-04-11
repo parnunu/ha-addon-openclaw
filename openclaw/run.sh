@@ -48,18 +48,19 @@ if [ -z "${GATEWAY_TOKEN}" ]; then
         chmod 600 "${TOKEN_FILE}"
         TOKEN_GENERATED=true
         echo "[openclaw] Generated new gateway token: ${GATEWAY_TOKEN}"
-        # Write back to HA options so it appears in the Configuration tab
-        if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
-            CURRENT_OPTS=$(cat "${CONFIG_PATH}")
-            UPDATED_OPTS=$(echo "${CURRENT_OPTS}" | jq --arg t "${GATEWAY_TOKEN}" '.gateway_token = $t')
-            curl -sSf -X POST \
-                -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
-                -H "Content-Type: application/json" \
-                -d "{\"options\": ${UPDATED_OPTS}}" \
-                http://supervisor/addons/self/options 2>/dev/null \
-                && echo "[openclaw] Token saved to add-on configuration." \
-                || echo "[openclaw] Warning: could not save token to add-on config."
-        fi
+    fi
+
+    # Write token back to HA options so it appears in the Configuration tab
+    if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+        CURRENT_OPTS=$(cat "${CONFIG_PATH}")
+        UPDATED_OPTS=$(echo "${CURRENT_OPTS}" | jq --arg t "${GATEWAY_TOKEN}" '.gateway_token = $t')
+        curl -sSf -X POST \
+            -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d "{\"options\": ${UPDATED_OPTS}}" \
+            http://supervisor/addons/self/options 2>/dev/null \
+            && echo "[openclaw] Token saved to add-on configuration." \
+            || echo "[openclaw] Warning: could not save token to add-on config."
     fi
 fi
 
