@@ -36,6 +36,7 @@ cd "${OPENCLAW_DATA}/workspace"
 
 # ── Gateway token ─────────────────────────────────────────────────────────────
 TOKEN_FILE="${OPENCLAW_DATA}/.gateway_token"
+TOKEN_GENERATED=false
 
 if [ -z "${GATEWAY_TOKEN}" ]; then
     if [ -f "${TOKEN_FILE}" ]; then
@@ -45,7 +46,20 @@ if [ -z "${GATEWAY_TOKEN}" ]; then
         GATEWAY_TOKEN=$(openssl rand -hex 32)
         echo "${GATEWAY_TOKEN}" > "${TOKEN_FILE}"
         chmod 600 "${TOKEN_FILE}"
-        echo "[openclaw] Generated new gateway token."
+        TOKEN_GENERATED=true
+        echo "[openclaw] Generated new gateway token: ${GATEWAY_TOKEN}"
+        # Write back to HA options so it appears in the Configuration tab
+        if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+            CURRENT_OPTS=$(cat "${CONFIG_PATH}")
+            UPDATED_OPTS=$(echo "${CURRENT_OPTS}" | jq --arg t "${GATEWAY_TOKEN}" '.gateway_token = $t')
+            curl -sSf -X POST \
+                -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "{\"options\": ${UPDATED_OPTS}}" \
+                http://supervisor/addons/self/options 2>/dev/null \
+                && echo "[openclaw] Token saved to add-on configuration." \
+                || echo "[openclaw] Warning: could not save token to add-on config."
+        fi
     fi
 fi
 
@@ -144,7 +158,12 @@ echo ""
 echo "  Direct access:  ${GATEWAY_URL}"
 echo "  HA Sidebar:     Use the OpenClaw panel in Home Assistant"
 echo ""
-echo "  Token: see add-on configuration page"
+if [ "${TOKEN_GENERATED}" = true ]; then
+    echo "  Gateway token: ${GATEWAY_TOKEN}"
+    echo "  (also saved to add-on Configuration tab)"
+else
+    echo "  Token: see add-on Configuration tab"
+fi
 echo "======================================================="
 
 # ── Start the gateway ─────────────────────────────────────────────────────────
