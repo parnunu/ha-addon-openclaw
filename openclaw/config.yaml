@@ -1,5 +1,5 @@
 name: OpenClaw
-version: "2026.4.9-11"
+version: "2026.4.10"
 slug: openclaw
 description: >-
   Run the OpenClaw AI gateway on your Home Assistant instance.
