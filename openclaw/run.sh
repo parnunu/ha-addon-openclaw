@@ -36,6 +36,7 @@ cd "${OPENCLAW_DATA}/workspace"
 
 # ── Gateway token ─────────────────────────────────────────────────────────────
 TOKEN_FILE="${OPENCLAW_DATA}/.gateway_token"
+TOKEN_GENERATED=false
 
 if [ -z "${GATEWAY_TOKEN}" ]; then
     if [ -f "${TOKEN_FILE}" ]; then
@@ -45,28 +46,81 @@ if [ -z "${GATEWAY_TOKEN}" ]; then
         GATEWAY_TOKEN=$(openssl rand -hex 32)
         echo "${GATEWAY_TOKEN}" > "${TOKEN_FILE}"
         chmod 600 "${TOKEN_FILE}"
-        echo "[openclaw] Generated new gateway token."
+        TOKEN_GENERATED=true
+        echo "[openclaw] Generated new gateway token: ${GATEWAY_TOKEN}"
+        # Write back to HA options so it appears in the Configuration tab
+        if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+            CURRENT_OPTS=$(cat "${CONFIG_PATH}")
+            UPDATED_OPTS=$(echo "${CURRENT_OPTS}" | jq --arg t "${GATEWAY_TOKEN}" '.gateway_token = $t')
+            curl -sSf -X POST \
+                -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+                -H "Content-Type: application/json" \
+                -d "{\"options\": ${UPDATED_OPTS}}" \
+                http://supervisor/addons/self/options 2>/dev/null \
+                && echo "[openclaw] Token saved to add-on configuration." \
+                || echo "[openclaw] Warning: could not save token to add-on config."
+        fi
     fi
 fi
 
 export OPENCLAW_GATEWAY_TOKEN="${GATEWAY_TOKEN}"
 
-# ── Detect LAN IP and build allowed origins ───────────────────────────────────
-LAN_IP=$(ip route get 1.1.1.1 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -1)
-LAN_IP="${LAN_IP:-127.0.0.1}"
-GATEWAY_ORIGIN="http://${LAN_IP}:18789"
+# ── Build allowed origins ────────────────────────────────────────────────────
+ORIGINS="[]"
+GATEWAY_URL=""
 
-if [ "$(echo "${ALLOWED_ORIGINS_JSON}" | jq 'length')" -gt 0 ]; then
-    # User supplied explicit origins in HA config — use them as-is
-    FINAL_ORIGINS="${ALLOWED_ORIGINS_JSON}"
-    echo "[openclaw] Using user-configured allowedOrigins: ${FINAL_ORIGINS}"
-else
-    # Auto-detect: allow every host in the /24 subnet
-    SUBNET=$(echo "${LAN_IP}" | cut -d. -f1-3)
-    SUBNET_ORIGINS=$(seq 1 254 | awk -v s="${SUBNET}" '{printf "\"http://%s.%d:18789\"", s, $1; if(NR<254) printf ","}')
-    FINAL_ORIGINS="[${SUBNET_ORIGINS}]"
-    echo "[openclaw] Auto-detected subnet ${SUBNET}.0/24 — allowing .1-.254"
+if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
+    # Running inside HA — query Supervisor API for instance URLs
+    HA_CONFIG=$(curl -sSf -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+        http://supervisor/core/api/config 2>/dev/null || echo "{}")
+
+    HA_EXTERNAL=$(echo "${HA_CONFIG}" | jq -r '.external_url // empty' | sed 's|/$||')
+    HA_INTERNAL=$(echo "${HA_CONFIG}" | jq -r '.internal_url // empty' | sed 's|/$||')
+
+    # Add HA instance URLs — required for ingress (browser sends these as Origin)
+    if [ -n "${HA_EXTERNAL}" ]; then
+        ORIGINS=$(echo "${ORIGINS}" | jq --arg o "${HA_EXTERNAL}" '. + [$o]')
+    fi
+    if [ -n "${HA_INTERNAL}" ]; then
+        ORIGINS=$(echo "${ORIGINS}" | jq --arg o "${HA_INTERNAL}" '. + [$o]')
+    fi
+
+    # Derive host IP for direct LAN access origin
+    if [ -n "${HA_INTERNAL}" ]; then
+        HOST_IP=$(echo "${HA_INTERNAL}" | sed -E 's|https?://([^:/]+).*|\1|')
+        GATEWAY_URL="http://${HOST_IP}:18789"
+    elif [ -n "${HA_EXTERNAL}" ]; then
+        HOST_NAME=$(echo "${HA_EXTERNAL}" | sed -E 's|https?://([^:/]+).*|\1|')
+        GATEWAY_URL="http://${HOST_NAME}:18789"
+    fi
+
+    if [ -n "${GATEWAY_URL}" ]; then
+        ORIGINS=$(echo "${ORIGINS}" | jq --arg o "${GATEWAY_URL}" '. + [$o]')
+    fi
+
+    echo "[openclaw] HA external_url: ${HA_EXTERNAL:-<not configured>}"
+    echo "[openclaw] HA internal_url: ${HA_INTERNAL:-<not configured>}"
 fi
+
+# Fallback: detect LAN IP if Supervisor API unavailable or returned no URLs
+if [ -z "${GATEWAY_URL}" ]; then
+    LAN_IP=$(ip route get 1.1.1.1 2>/dev/null \
+        | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' \
+        | head -1 || true)
+    LAN_IP="${LAN_IP:-127.0.0.1}"
+    GATEWAY_URL="http://${LAN_IP}:18789"
+    ORIGINS=$(echo "${ORIGINS}" | jq --arg o "${GATEWAY_URL}" '. + [$o]')
+fi
+
+# Merge user-configured origins (if any)
+if [ "$(echo "${ALLOWED_ORIGINS_JSON}" | jq 'length')" -gt 0 ]; then
+    ORIGINS=$(echo "${ORIGINS}" | jq --argjson user "${ALLOWED_ORIGINS_JSON}" '. + $user')
+    echo "[openclaw] Added user-configured allowed origins."
+fi
+
+# De-duplicate
+FINAL_ORIGINS=$(echo "${ORIGINS}" | jq 'unique')
+echo "[openclaw] Allowed origins: ${FINAL_ORIGINS}"
 
 # ── Bootstrap openclaw config ─────────────────────────────────────────────────
 OC_CONFIG_DIR="${OPENCLAW_DATA}/.openclaw"
@@ -75,7 +129,7 @@ OC_CONFIG_FILE="${OC_CONFIG_DIR}/openclaw.json"
 mkdir -p "${OC_CONFIG_DIR}"
 
 if [ ! -f "${OC_CONFIG_FILE}" ]; then
-    echo "[openclaw] Writing bootstrap config to ${OC_CONFIG_FILE}..."
+    echo "[openclaw] Writing bootstrap config..."
     cat > "${OC_CONFIG_FILE}" <<EOF
 {
   "gateway": {
@@ -91,7 +145,7 @@ if [ ! -f "${OC_CONFIG_FILE}" ]; then
 EOF
 fi
 
-# Sync allowedOrigins from HA config (or auto-detected subnet) into openclaw
+# Sync allowedOrigins from HA config (or auto-detected) into openclaw
 jq --argjson origins "${FINAL_ORIGINS}" \
     '.gateway.controlUi.allowedOrigins = $origins' "${OC_CONFIG_FILE}" \
     > "${OC_CONFIG_FILE}.tmp" \
@@ -99,12 +153,17 @@ jq --argjson origins "${FINAL_ORIGINS}" \
 
 # ── Print connection info ─────────────────────────────────────────────────────
 echo "======================================================="
-echo "  OpenClaw Gateway started"
+echo "  OpenClaw Gateway starting"
 echo ""
-echo "  Open in your browser:"
-echo "    ${GATEWAY_ORIGIN}"
+echo "  Direct access:  ${GATEWAY_URL}"
+echo "  HA Sidebar:     Use the OpenClaw panel in Home Assistant"
 echo ""
-echo "  Gateway token: ${GATEWAY_TOKEN}"
+if [ "${TOKEN_GENERATED}" = true ]; then
+    echo "  Gateway token: ${GATEWAY_TOKEN}"
+    echo "  (also saved to add-on Configuration tab)"
+else
+    echo "  Token: see add-on Configuration tab"
+fi
 echo "======================================================="
 
 # ── Start the gateway ─────────────────────────────────────────────────────────

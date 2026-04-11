@@ -28,32 +28,25 @@ That's it. The gateway is now running on your local network.
 |--------|---------|-------------|
 | `gateway_token` | *(auto)* | Authentication token for the gateway. Leave blank to auto-generate one (recommended). |
 | `log_level` | `info` | Log verbosity: `debug`, `info`, `warning`, or `error`. |
+| `allowed_origins` | *(auto)* | List of allowed CORS origins for the Control UI. Leave empty for auto-detection (recommended). |
 
 ### Example
 
 ```yaml
-gateway_token: ""   # leave blank → a token is auto-generated and persisted
+gateway_token: ""          # leave blank → a token is auto-generated and persisted
 log_level: "info"
+allowed_origins: []        # auto-detects HA URLs; add custom origins if needed
 ```
 
 ## Connecting to the Gateway
 
-After starting the add-on, check the **Log** tab — it will print the exact URL:
+There are two ways to access the OpenClaw Control UI:
 
-```
-=======================================================
-  OpenClaw Gateway started
+1. **HA Sidebar (recommended):** Click the **OpenClaw** panel in the Home Assistant sidebar. This uses HA's built-in ingress proxy — no extra ports or firewall rules needed.
 
-  Open in your browser:
-    http://192.168.1.x:18789
+2. **Direct LAN access:** Open `http://<HA-IP>:18789` in any browser on your network. The IP and port are shown in the add-on **Log** tab.
 
-  Gateway token: <your-token>
-=======================================================
-```
-
-**Just open that URL in any browser on your network.** That's the OpenClaw web UI where you configure LLM providers, connect messaging channels (WhatsApp, Telegram, etc.), and chat with the AI.
-
-The token is only needed if you're connecting via the `openclaw` CLI from another machine:
+The gateway token is shown in the add-on **Configuration** tab. It's only needed if you're connecting via the `openclaw` CLI from another machine:
 ```
 openclaw gateway connect --url ws://<HA-IP>:18789 --token <token>
 ```
@@ -64,7 +57,9 @@ openclaw gateway connect --url ws://<HA-IP>:18789 --token <token>
 |------|----------|-------------|
 | 18789 | TCP | OpenClaw Gateway WebSocket & Web UI |
 
-The port is exposed on your LAN so all devices on the same network can reach the gateway. Internet access is also available for outbound LLM API calls.
+Port 18789 is mapped from the container to your host, so all devices on the same network can reach the gateway directly. The port can be changed in the add-on **Network** configuration. Internet access is also available for outbound LLM API calls.
+
+> **Note:** The HA sidebar panel (ingress) works independently of the port mapping — it proxies through Home Assistant's built-in reverse proxy.
 
 ## Persistent Storage
 
@@ -116,4 +111,4 @@ Check the **Log** tab. Common causes:
 - Confirm you're using the correct HA host IP (visible in **Settings → System → Network**).
 
 **Token lost after reinstall**
-The token is stored in `/data/openclaw/.gateway_token`. Uninstalling the add-on wipes `/data`, so a new token is generated on the next install — update your clients with the new token printed in the logs.
+The token is stored in `/data/openclaw/.gateway_token`. Uninstalling the add-on wipes `/data`, so a new token is generated on the next install — find the new token in the add-on **Configuration** tab.
