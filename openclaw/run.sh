@@ -110,6 +110,5 @@ echo "======================================================="
 # ── Start the gateway ─────────────────────────────────────────────────────────
 exec openclaw gateway run \
     --port 18789 \
-    --bind lan \
     --auth token \
     --allow-unconfigured
