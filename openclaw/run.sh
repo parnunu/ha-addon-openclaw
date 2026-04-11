@@ -169,8 +169,8 @@ jq --argjson origins "${FINAL_ORIGINS}" \
 echo "======================================================="
 echo "  OpenClaw Gateway starting"
 echo ""
-echo "  Direct access:  ${GATEWAY_URL}"
-echo "  HA Sidebar:     Use the OpenClaw panel in Home Assistant"
+echo "  Open in your browser:"
+echo "    ${GATEWAY_URL}"
 echo ""
 if [ "${TOKEN_GENERATED}" = true ]; then
     echo "  Gateway token: ${GATEWAY_TOKEN}"
@@ -179,12 +179,6 @@ else
     echo "  Token: see add-on Configuration tab"
 fi
 echo "======================================================="
-
-# ── Start nginx for HA ingress ────────────────────────────────────────────────
-# Nginx proxies ingress requests to OpenClaw and strips X-Frame-Options /
-# Content-Security-Policy headers so the UI can load inside HA's iframe.
-echo "[openclaw] Starting nginx ingress proxy on port 8099..."
-nginx
 
 # ── Start the gateway ─────────────────────────────────────────────────────────
 exec openclaw gateway run \
