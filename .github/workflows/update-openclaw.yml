@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   check-and-bump:
@@ -53,7 +54,7 @@ jobs:
             openclaw/build.yaml
 
           # config.yaml — addon version = openclaw version so HA shows the update
-          sed -i "s/^version: \"${OLD}\"/version: \"${NEW}\"/" \
+          sed -i "s/^version: \".*\"/version: \"${NEW}\"/" \
             openclaw/config.yaml
 
           # Prepend a CHANGELOG entry
@@ -73,3 +74,9 @@ jobs:
           git tag "${NEW}"
           git push
           git push origin "${NEW}"
+
+      - name: Trigger image build
+        if: steps.npm.outputs.version != steps.current.outputs.version
+        run: gh workflow run build.yml --ref main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

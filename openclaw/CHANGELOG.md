@@ -12,7 +12,8 @@
   configured `external_url` and `internal_url` via the Supervisor API — only
   the exact URLs that the browser will actually use.
 - **Security: gateway token logged in plain text.** The token is no longer
-  printed to the add-on log. It can be found in the add-on Configuration tab.
+  printed to the add-on log on every restart. It is shown once on first
+  generation and written back to the add-on Configuration tab via Supervisor API.
 - **Security: unnecessary `host_network: true`.** The container no longer gets
   full access to the host network stack. Port 18789 is exposed via standard
   Docker port mapping instead.
@@ -20,6 +21,12 @@
 ### Added
 - HA Supervisor API integration for automatic origin detection — ingress
   "just works" without manual `allowed_origins` configuration.
+- **Pre-built Docker images.** A GitHub Actions workflow now builds and pushes
+  multi-arch images (amd64, aarch64) to GHCR on every push to main. Users
+  pull ready-made images instead of building locally — faster installs and
+  updates, no more build button.
+- Auto-generated gateway token is written back to HA options via Supervisor API
+  so it appears in the add-on Configuration tab.
 
 ## 2026.4.9-2 — 2026-04-11
 

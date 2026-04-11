@@ -7,7 +7,8 @@ ARG BUILD_ARCH
 LABEL \
     io.hass.version="${BUILD_VERSION}" \
     io.hass.type="addon" \
-    io.hass.arch="${BUILD_ARCH}"
+    io.hass.arch="${BUILD_ARCH}" \
+    org.opencontainers.image.source="https://github.com/parnunu/ha-addon-openclaw"
 
 # Install Node.js and system dependencies in one layer
 # nodejs and npm are in the Alpine community repo which HA base images include

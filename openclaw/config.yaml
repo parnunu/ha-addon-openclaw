@@ -6,6 +6,7 @@ description: >-
   Connect any AI channel (WhatsApp, Telegram, Discord, Slack, and more)
   to your own LLM — all from your own hardware.
 url: https://github.com/parnunu/ha-addon-openclaw
+image: ghcr.io/parnunu/{arch}-addon-openclaw
 arch:
   - amd64
   - aarch64
