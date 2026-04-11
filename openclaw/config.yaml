@@ -1,5 +1,5 @@
 name: OpenClaw
-version: "2026.4.10"
+version: "2026.4.10-1"
 slug: openclaw
 description: >-
   Run the OpenClaw AI gateway on your Home Assistant instance.
@@ -11,7 +11,7 @@ arch:
   - amd64
   - aarch64
 ingress: true
-ingress_port: 18789
+ingress_port: 8099
 ports:
   "18789/tcp": 18789
 ports_description:
