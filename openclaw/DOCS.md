@@ -40,11 +40,13 @@ allowed_origins: []        # auto-detects HA URLs; add custom origins if needed
 
 ## Connecting to the Gateway
 
+> **Important:** OpenClaw's Control UI requires a **secure context** (HTTPS or localhost). You must access Home Assistant over HTTPS for the sidebar panel to work. Set up HTTPS using [Nabu Casa](https://www.nabucasa.com/), the DuckDNS add-on, or your own reverse proxy with TLS.
+
 There are two ways to access the OpenClaw Control UI:
 
-1. **HA Sidebar (recommended):** Click the **OpenClaw** panel in the Home Assistant sidebar. This uses HA's built-in ingress proxy — no extra ports or firewall rules needed.
+1. **HA Sidebar (recommended):** Access Home Assistant over **HTTPS** (e.g., `https://your-ha.duckdns.org`), then click the **OpenClaw** panel in the sidebar. The gateway token and WebSocket URL are auto-filled — just click **Connect**.
 
-2. **Direct LAN access:** Open `http://<HA-IP>:18789` in any browser on your network. The IP and port are shown in the add-on **Log** tab.
+2. **Direct LAN access:** Open `http://<HA-IP>:18789` in any browser on your network. Note: the Control UI's device identity features require HTTPS, so some functionality may be limited over plain HTTP.
 
 The gateway token is shown in the add-on **Configuration** tab. It's only needed if you're connecting via the `openclaw` CLI from another machine:
 ```
