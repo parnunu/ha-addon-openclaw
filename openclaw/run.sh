@@ -166,6 +166,12 @@ else
 fi
 echo "======================================================="
 
+# ── Start nginx for HA ingress ────────────────────────────────────────────────
+# Nginx proxies ingress requests to OpenClaw and strips X-Frame-Options /
+# Content-Security-Policy headers so the UI can load inside HA's iframe.
+echo "[openclaw] Starting nginx ingress proxy on port 8099..."
+nginx
+
 # ── Start the gateway ─────────────────────────────────────────────────────────
 exec openclaw gateway run \
     --port 18789 \
