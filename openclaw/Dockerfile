@@ -21,7 +21,6 @@ RUN apk add --no-cache \
         jq \
         openssl \
         ca-certificates \
-        nginx \
     && update-ca-certificates \
     && node --version \
     && npm --version
@@ -29,9 +28,6 @@ RUN apk add --no-cache \
 # Install openclaw from npm
 ARG OPENCLAW_VERSION=2026.4.9
 RUN npm install -g --no-fund --no-audit openclaw@${OPENCLAW_VERSION}
-
-# Nginx config for HA ingress proxy (strips X-Frame-Options for iframe embedding)
-COPY nginx.conf /etc/nginx/nginx.conf
 
 # Startup script
 COPY run.sh /run.sh
