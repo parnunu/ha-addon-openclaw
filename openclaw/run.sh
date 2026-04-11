@@ -152,16 +152,18 @@ if [ ! -f "${OC_CONFIG_FILE}" ]; then
       "token": "${GATEWAY_TOKEN}"
     },
     "controlUi": {
-      "allowedOrigins": []
+      "allowedOrigins": [],
+      "dangerouslyDisableDeviceAuth": true
     }
   }
 }
 EOF
 fi
 
-# Sync allowedOrigins from HA config (or auto-detected) into openclaw
+# Sync controlUi settings into openclaw config
 jq --argjson origins "${FINAL_ORIGINS}" \
-    '.gateway.controlUi.allowedOrigins = $origins' "${OC_CONFIG_FILE}" \
+    '.gateway.controlUi.allowedOrigins = $origins |
+     .gateway.controlUi.dangerouslyDisableDeviceAuth = true' "${OC_CONFIG_FILE}" \
     > "${OC_CONFIG_FILE}.tmp" \
     && mv "${OC_CONFIG_FILE}.tmp" "${OC_CONFIG_FILE}"
 
