@@ -18,6 +18,8 @@ map:
   - data:rw
 startup: application
 init: false
+hassio_api: true
+hassio_role: manager
 options:
   gateway_token: ""
   log_level: "info"

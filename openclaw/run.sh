@@ -34,6 +34,10 @@ fi
 
 cd "${OPENCLAW_DATA}/workspace"
 
+if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
+    echo "[openclaw] WARNING: SUPERVISOR_TOKEN is missing. Supervisor API calls are disabled; token persistence to add-on options and HA URL discovery will not work."
+fi
+
 # ── Gateway token ─────────────────────────────────────────────────────────────
 TOKEN_FILE="${OPENCLAW_DATA}/.gateway_token"
 TOKEN_GENERATED=false
@@ -54,13 +58,19 @@ if [ -z "${GATEWAY_TOKEN}" ]; then
     if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
         CURRENT_OPTS=$(cat "${CONFIG_PATH}")
         UPDATED_OPTS=$(echo "${CURRENT_OPTS}" | jq --arg t "${GATEWAY_TOKEN}" '.gateway_token = $t')
-        curl -sSf -X POST \
+
+        HTTP_CODE=$(curl -sS -o /tmp/openclaw-supervisor-options.json -w "%{http_code}" -X POST \
             -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "{\"options\": ${UPDATED_OPTS}}" \
-            http://supervisor/addons/self/options 2>/dev/null \
-            && echo "[openclaw] Token saved to add-on configuration." \
-            || echo "[openclaw] Warning: could not save token to add-on config."
+            http://supervisor/addons/self/options || true)
+
+        if [ "${HTTP_CODE}" = "200" ]; then
+            echo "[openclaw] Token saved to add-on configuration."
+        else
+            SUPERVISOR_ERROR=$(cat /tmp/openclaw-supervisor-options.json 2>/dev/null || echo "<no response body>")
+            echo "[openclaw] Warning: could not save token to add-on config (HTTP ${HTTP_CODE}). Ensure hassio_api=true and a sufficient hassio_role (manager/admin). Response: ${SUPERVISOR_ERROR}"
+        fi
     fi
 fi
 
