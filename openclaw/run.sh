@@ -68,6 +68,7 @@ export OPENCLAW_GATEWAY_TOKEN="${GATEWAY_TOKEN}"
 # ── Build allowed origins ────────────────────────────────────────────────────
 ORIGINS="[]"
 GATEWAY_URL=""
+HOST_IP=""
 
 if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
     # Running inside HA — query Supervisor API for instance URLs
@@ -83,23 +84,36 @@ if [ -n "${SUPERVISOR_TOKEN:-}" ]; then
     fi
     if [ -n "${HA_INTERNAL}" ]; then
         ORIGINS=$(echo "${ORIGINS}" | jq --arg o "${HA_INTERNAL}" '. + [$o]')
+        HOST_IP=$(echo "${HA_INTERNAL}" | sed -E 's|https?://([^:/]+).*|\1|')
     fi
 
-    # Derive host IP for direct LAN access origin
-    if [ -n "${HA_INTERNAL}" ]; then
-        HOST_IP=$(echo "${HA_INTERNAL}" | sed -E 's|https?://([^:/]+).*|\1|')
+    # If internal_url not configured, get host IP from Supervisor network API
+    if [ -z "${HOST_IP}" ]; then
+        NETWORK_INFO=$(curl -sSf -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+            http://supervisor/network/info 2>/dev/null || echo "{}")
+        HOST_IP=$(echo "${NETWORK_INFO}" | jq -r \
+            '[.data.interfaces[]? | select(.enabled==true) | .ipv4.address[0]? // empty] | first // empty' \
+            2>/dev/null | cut -d/ -f1)
+    fi
+
+    # Add HA origin on default port (for ingress — browser Origin header)
+    if [ -n "${HOST_IP}" ] && [ -z "${HA_INTERNAL}" ]; then
+        ORIGINS=$(echo "${ORIGINS}" | jq --arg o "http://${HOST_IP}:8123" '. + [$o]')
+    fi
+
+    # Add direct LAN access origin (gateway port)
+    if [ -n "${HOST_IP}" ]; then
         GATEWAY_URL="http://${HOST_IP}:18789"
+        ORIGINS=$(echo "${ORIGINS}" | jq --arg o "${GATEWAY_URL}" '. + [$o]')
     elif [ -n "${HA_EXTERNAL}" ]; then
         HOST_NAME=$(echo "${HA_EXTERNAL}" | sed -E 's|https?://([^:/]+).*|\1|')
         GATEWAY_URL="http://${HOST_NAME}:18789"
-    fi
-
-    if [ -n "${GATEWAY_URL}" ]; then
         ORIGINS=$(echo "${ORIGINS}" | jq --arg o "${GATEWAY_URL}" '. + [$o]')
     fi
 
     echo "[openclaw] HA external_url: ${HA_EXTERNAL:-<not configured>}"
     echo "[openclaw] HA internal_url: ${HA_INTERNAL:-<not configured>}"
+    echo "[openclaw] Host IP: ${HOST_IP:-<not detected>}"
 fi
 
 # Fallback: detect LAN IP if Supervisor API unavailable or returned no URLs
