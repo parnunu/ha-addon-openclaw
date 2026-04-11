@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026.4.9-11 — 2026-04-11
+
+### Fixed
+- **Ingress broken (`net::ERR_FAILED`):** Removed `host_network: true` which is
+  incompatible with HA ingress — the Supervisor proxies via Docker's internal
+  network, which `host_network` bypasses entirely. Replaced with explicit port
+  mapping so direct LAN access still works.
+- **Security: overly broad CORS origins.** Stopped generating origins for all
+  254 hosts in the /24 subnet. Origins are now derived from the HA instance's
+  configured `external_url` and `internal_url` via the Supervisor API — only
+  the exact URLs that the browser will actually use.
+- **Security: gateway token logged in plain text.** The token is no longer
+  printed to the add-on log. It can be found in the add-on Configuration tab.
+- **Security: unnecessary `host_network: true`.** The container no longer gets
+  full access to the host network stack. Port 18789 is exposed via standard
+  Docker port mapping instead.
+
+### Added
+- HA Supervisor API integration for automatic origin detection — ingress
+  "just works" without manual `allowed_origins` configuration.
+
 ## 2026.4.9-2 — 2026-04-11
 
 ### Fixed
