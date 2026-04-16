@@ -2,7 +2,7 @@ name: Update OpenClaw version
 
 # Runs daily and whenever triggered manually.
 # Checks the openclaw npm package for a new release. If the version changed,
-# it updates build.yaml + config.yaml and commits — which causes Home Assistant
+# it updates the pinned addon files and commits, which causes Home Assistant
 # to show an "Update available" badge for users who have the add-on installed.
 
 on:
@@ -12,7 +12,6 @@ on:
 
 permissions:
   contents: write
-  actions: write
 
 jobs:
   check-and-bump:
@@ -20,63 +19,108 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Get latest openclaw version from npm
+      - name: Get latest OpenClaw version from npm
         id: npm
         run: |
           VERSION=$(npm view openclaw version 2>/dev/null)
+          if [ -z "${VERSION}" ]; then
+            echo "Unable to determine the latest openclaw version from npm" >&2
+            exit 1
+          fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Latest openclaw on npm: ${VERSION}"
 
-      - name: Get current pinned version from build.yaml
-        id: current
-        run: |
-          VERSION=$(grep 'OPENCLAW_VERSION:' openclaw/build.yaml \
-            | sed 's/.*OPENCLAW_VERSION: *"\?//;s/"\?.*//')
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Current pinned version: ${VERSION}"
-
-      - name: Skip if already up to date
-        if: steps.npm.outputs.version == steps.current.outputs.version
-        run: echo "Already at ${{ steps.npm.outputs.version }}, nothing to do."
-
-      - name: Bump versions in build.yaml and config.yaml
-        if: steps.npm.outputs.version != steps.current.outputs.version
-        env:
-          NEW: ${{ steps.npm.outputs.version }}
-          OLD: ${{ steps.current.outputs.version }}
-        run: |
-          echo "Bumping openclaw ${OLD} → ${NEW}"
-
-          # build.yaml — update pinned npm version
-          sed -i "s/OPENCLAW_VERSION: \"${OLD}\"/OPENCLAW_VERSION: \"${NEW}\"/" \
-            openclaw/build.yaml
-
-          # config.yaml — addon version = openclaw version so HA shows the update
-          sed -i "s/^version: \".*\"/version: \"${NEW}\"/" \
-            openclaw/config.yaml
-
-          # Prepend a CHANGELOG entry
-          DATE=$(date -u +%Y-%m-%d)
-          ENTRY="## ${NEW} — ${DATE}\n\n### Changed\n- Updated OpenClaw to ${NEW}.\n"
-          sed -i "1s/^/${ENTRY}\n/" openclaw/CHANGELOG.md
-
-      - name: Commit, tag and push
-        if: steps.npm.outputs.version != steps.current.outputs.version
+      - name: Sync pinned versions and changelog
+        id: sync
         env:
           NEW: ${{ steps.npm.outputs.version }}
         run: |
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add openclaw/build.yaml openclaw/config.yaml openclaw/CHANGELOG.md
+          python - <<'PY'
+          from datetime import datetime, timezone
+          from pathlib import Path
+          import os
+          import re
+
+          target = os.environ["NEW"].strip()
+          root = Path("openclaw")
+
+          build_path = root / "build.yaml"
+          config_path = root / "config.yaml"
+          docker_path = root / "Dockerfile"
+          changelog_path = root / "CHANGELOG.md"
+
+          build_text = build_path.read_text(encoding="utf-8")
+          config_text = config_path.read_text(encoding="utf-8")
+          docker_text = docker_path.read_text(encoding="utf-8")
+          changelog_text = changelog_path.read_text(encoding="utf-8")
+
+          build_match = re.search(r'(^\s*OPENCLAW_VERSION:\s*")([^"]+)(")', build_text, re.MULTILINE)
+          config_match = re.search(r'(^version:\s*")([^"]+)(")', config_text, re.MULTILINE)
+          docker_match = re.search(r'(^ARG OPENCLAW_VERSION=)(\S+)', docker_text, re.MULTILINE)
+
+          if not build_match or not config_match or not docker_match:
+              raise SystemExit("Unable to locate one or more version fields to update.")
+
+          current_build = build_match.group(2)
+          current_config = config_match.group(2)
+          current_docker = docker_match.group(2)
+          version_changed = current_config != target
+
+          build_text = re.sub(
+              r'(^\s*OPENCLAW_VERSION:\s*")[^"]+(")',
+              rf'\g<1>{target}\2',
+              build_text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          config_text = re.sub(
+              r'(^version:\s*")[^"]+(")',
+              rf'\g<1>{target}\2',
+              config_text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+          docker_text = re.sub(
+              r'(^ARG OPENCLAW_VERSION=)\S+',
+              rf'\g<1>{target}',
+              docker_text,
+              count=1,
+              flags=re.MULTILINE,
+          )
+
+          entry_pattern = re.compile(rf'^## {re.escape(target)} (?:-|\u2014) ', re.MULTILINE)
+          if version_changed and not entry_pattern.search(changelog_text):
+              date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+              entry = f"## {target} - {date}\n\n### Changed\n- Updated OpenClaw to {target}.\n\n"
+              changelog_text = entry + changelog_text
+
+          build_path.write_text(build_text, encoding="utf-8")
+          config_path.write_text(config_text, encoding="utf-8")
+          docker_path.write_text(docker_text, encoding="utf-8")
+          changelog_path.write_text(changelog_text, encoding="utf-8")
+
+          print(f"build.yaml: {current_build} -> {target}")
+          print(f"config.yaml: {current_config} -> {target}")
+          print(f"Dockerfile: {current_docker} -> {target}")
+          PY
+
+          if git diff --quiet -- openclaw/build.yaml openclaw/config.yaml openclaw/Dockerfile openclaw/CHANGELOG.md; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Repository already matches ${NEW}."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff -- openclaw/build.yaml openclaw/config.yaml openclaw/Dockerfile openclaw/CHANGELOG.md
+          fi
+
+      - name: Commit and push
+        if: steps.sync.outputs.changed == 'true'
+        env:
+          NEW: ${{ steps.npm.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add openclaw/build.yaml openclaw/config.yaml openclaw/Dockerfile openclaw/CHANGELOG.md
           git commit -m "chore: bump openclaw to ${NEW}"
-          git tag "${NEW}"
           git push
-          git push origin "${NEW}"
-
-      - name: Trigger image build
-        if: steps.npm.outputs.version != steps.current.outputs.version
-        run: gh workflow run build.yml --ref main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

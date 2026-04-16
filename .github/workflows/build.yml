@@ -26,14 +26,28 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Get add-on version
-        id: version
+        id: addon
         run: |
           VERSION=$(grep '^version:' openclaw/config.yaml \
             | sed 's/version: *"//;s/"//')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Get pinned OpenClaw version
+        id: openclaw
+        run: |
+          VERSION=$(grep 'OPENCLAW_VERSION:' openclaw/build.yaml \
+            | sed 's/.*OPENCLAW_VERSION: *"\?//;s/"\?.*//')
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate pinned versions
+        run: |
+          if [ "${{ steps.addon.outputs.version }}" != "${{ steps.openclaw.outputs.version }}" ]; then
+            echo "config.yaml version (${{ steps.addon.outputs.version }}) does not match build.yaml OPENCLAW_VERSION (${{ steps.openclaw.outputs.version }})" >&2
+            exit 1
+          fi
 
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -53,8 +67,9 @@ jobs:
           push: true
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
-            BUILD_VERSION=${{ steps.version.outputs.version }}
+            BUILD_VERSION=${{ steps.addon.outputs.version }}
             BUILD_ARCH=${{ matrix.arch }}
+            OPENCLAW_VERSION=${{ steps.openclaw.outputs.version }}
           tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-addon-openclaw:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-addon-openclaw:${{ steps.addon.outputs.version }}
             ghcr.io/${{ github.repository_owner }}/${{ matrix.arch }}-addon-openclaw:latest
