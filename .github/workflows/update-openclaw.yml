@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   check-and-bump:
@@ -124,3 +125,9 @@ jobs:
           git add openclaw/build.yaml openclaw/config.yaml openclaw/Dockerfile openclaw/CHANGELOG.md
           git commit -m "chore: bump openclaw to ${NEW}"
           git push
+
+      - name: Trigger image build
+        if: steps.sync.outputs.changed == 'true'
+        run: gh workflow run build.yml --ref main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

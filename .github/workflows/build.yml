@@ -31,16 +31,40 @@ jobs:
       - name: Get add-on version
         id: addon
         run: |
-          VERSION=$(grep '^version:' openclaw/config.yaml \
-            | sed 's/version: *"//;s/"//')
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          config_text = Path("openclaw/config.yaml").read_text(encoding="utf-8")
+          match = re.search(r'^version:\s*"([^"]+)"', config_text, re.MULTILINE)
+          if not match:
+              raise SystemExit("Unable to parse version from openclaw/config.yaml")
+
+          Path(os.environ["GITHUB_OUTPUT"]).write_text(
+              f"version={match.group(1)}\n",
+              encoding="utf-8",
+          )
+          PY
 
       - name: Get pinned OpenClaw version
         id: openclaw
         run: |
-          VERSION=$(grep 'OPENCLAW_VERSION:' openclaw/build.yaml \
-            | sed 's/.*OPENCLAW_VERSION: *"\?//;s/"\?.*//')
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          build_text = Path("openclaw/build.yaml").read_text(encoding="utf-8")
+          match = re.search(r'^\s*OPENCLAW_VERSION:\s*"([^"]+)"', build_text, re.MULTILINE)
+          if not match:
+              raise SystemExit("Unable to parse OPENCLAW_VERSION from openclaw/build.yaml")
+
+          Path(os.environ["GITHUB_OUTPUT"]).write_text(
+              f"version={match.group(1)}\n",
+              encoding="utf-8",
+          )
+          PY
 
       - name: Validate pinned versions
         run: |
