@@ -25,6 +25,14 @@ export XDG_CACHE_HOME="${OPENCLAW_DATA}/.cache"
 export npm_config_cache="${OPENCLAW_DATA}/.npm"
 export OPENCLAW_WORKSPACE="${OPENCLAW_DATA}/workspace"
 
+# Prefer IPv4 on HAOS networks where IPv6 DNS/connectivity is flaky.
+if [[ " ${NODE_OPTIONS:-} " != *" --dns-result-order="* ]]; then
+    export NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--dns-result-order=ipv4first"
+fi
+if [[ " ${NODE_OPTIONS:-} " != *" --no-network-family-autoselection "* ]]; then
+    export NODE_OPTIONS="${NODE_OPTIONS:+${NODE_OPTIONS} }--no-network-family-autoselection"
+fi
+
 # Symlink /root → persistent data dir
 if [ ! -L /root ]; then
     cp -a /root/. "${OPENCLAW_DATA}/" 2>/dev/null || true
@@ -37,6 +45,8 @@ cd "${OPENCLAW_DATA}/workspace"
 if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
     echo "[openclaw] WARNING: SUPERVISOR_TOKEN is missing. Supervisor API calls are disabled; token persistence to add-on options and HA URL discovery will not work."
 fi
+echo "[openclaw] NODE_OPTIONS: ${NODE_OPTIONS}"
+awk '/^nameserver / {print "[openclaw] DNS server: " $2}' /etc/resolv.conf 2>/dev/null || true
 
 # ── Gateway token ─────────────────────────────────────────────────────────────
 TOKEN_FILE="${OPENCLAW_DATA}/.gateway_token"
@@ -190,5 +200,6 @@ echo "======================================================="
 # ── Start the gateway ─────────────────────────────────────────────────────────
 exec openclaw gateway run \
     --port 18789 \
+    --bind lan \
     --auth token \
     --allow-unconfigured
