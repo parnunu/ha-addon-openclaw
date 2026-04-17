@@ -45,8 +45,6 @@ cd "${OPENCLAW_DATA}/workspace"
 if [ -z "${SUPERVISOR_TOKEN:-}" ]; then
     echo "[openclaw] WARNING: SUPERVISOR_TOKEN is missing. Supervisor API calls are disabled; token persistence to add-on options and HA URL discovery will not work."
 fi
-echo "[openclaw] NODE_OPTIONS: ${NODE_OPTIONS}"
-awk '/^nameserver / {print "[openclaw] DNS server: " $2}' /etc/resolv.conf 2>/dev/null || true
 
 # ── Gateway token ─────────────────────────────────────────────────────────────
 TOKEN_FILE="${OPENCLAW_DATA}/.gateway_token"
