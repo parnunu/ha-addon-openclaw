@@ -1,6 +1,6 @@
 # ha-addon-openclaw
 
-Home Assistant add-on repository for [OpenClaw](https://github.com/openclaw/openclaw) — the open-source multi-channel AI gateway.
+Source repository for the [OpenClaw](https://github.com/openclaw/openclaw) Home Assistant add-on.
 
 ## Add-ons
 
@@ -10,12 +10,12 @@ Home Assistant add-on repository for [OpenClaw](https://github.com/openclaw/open
 
 ## Installation (2 steps)
 
-1. **Add this repository** in Home Assistant:
+1. **Add the central repository** in Home Assistant:
 
-   [![Add Repository](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fparnunu%2Fha-addon-openclaw)
+   [![Add Repository](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fparnunu%2Fhome-assistant-addons)
 
    Or manually: **Settings → Add-ons → Add-on Store → ⋮ → Repositories**
-   and paste `https://github.com/parnunu/ha-addon-openclaw`.
+   and paste `https://github.com/parnunu/home-assistant-addons`.
 
 2. **Search for "OpenClaw"** in the add-on store and click **Install**.
 
@@ -37,3 +37,9 @@ OpenClaw lets you run your own AI assistant that answers you on the messaging ap
 - [Add-on documentation](./openclaw/DOCS.md)
 - [OpenClaw upstream project](https://github.com/openclaw/openclaw)
 - [Issues](https://github.com/parnunu/ha-addon-openclaw/issues)
+
+## Publishing
+
+This repository is the source of truth for the OpenClaw add-on. A GitHub Actions workflow publishes the installable `openclaw/` folder into the central Home Assistant repository:
+
+- `https://github.com/parnunu/home-assistant-addons`
