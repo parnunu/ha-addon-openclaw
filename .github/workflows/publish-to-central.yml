@@ -1,0 +1,54 @@
+name: Publish to Central Add-on Repo
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/publish-to-central.yml"
+      - "openclaw/**"
+      - "LICENSE"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v5
+
+      - name: Checkout central repo
+        uses: actions/checkout@v5
+        with:
+          repository: parnunu/home-assistant-addons
+          token: ${{ secrets.CENTRAL_REPO_PAT }}
+          path: central
+
+      - name: Sync published folder
+        run: |
+          set -euo pipefail
+
+          target="central/openclaw"
+          rm -rf "${target}"
+          mkdir -p "${target}"
+
+          cp -R openclaw/. "${target}/"
+
+      - name: Commit and push changes
+        run: |
+          set -euo pipefail
+
+          cd central
+          if git diff --quiet -- openclaw; then
+            echo "No central repo changes to publish."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add openclaw
+          git commit -m "chore(publish): sync openclaw from parnunu/ha-addon-openclaw@${GITHUB_SHA}"
+          git push origin main
