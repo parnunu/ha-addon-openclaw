@@ -26,7 +26,7 @@ RUN apk add --no-cache \
     && npm --version
 
 # Install openclaw from npm
-ARG OPENCLAW_VERSION=2026.8.1
+ARG OPENCLAW_VERSION=2026.8.2
 RUN npm install -g --no-fund --no-audit openclaw@${OPENCLAW_VERSION}
 
 # Startup script
